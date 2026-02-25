@@ -58,6 +58,8 @@ test('GET /api/developers/analytics returns 401 when unauthenticated', async () 
   const app = createApp({ usageEventsRepository: seedRepository() });
   const response = await request(app).get('/api/developers/analytics');
   assert.equal(response.status, 401);
+  assert.equal(typeof response.body.error, 'string');
+  assert.equal(response.body.code, 'UNAUTHORIZED');
 });
 
 test('GET /api/developers/analytics validates query params', async () => {

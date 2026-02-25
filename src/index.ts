@@ -12,9 +12,19 @@ import { calloraEvents } from './events/event.emitter';
 import helmet from 'helmet';
 import { db, initializeDb, schema } from './db/index.js';
 import { eq, desc } from 'drizzle-orm';
+import { requireAuth, type AuthenticatedLocals } from './middleware/requireAuth.js';
+import { errorHandler } from './middleware/errorHandler.js';
+import { BadRequestError, NotFoundError, UnauthorizedError, ForbiddenError } from './errors/index.js';
+import * as developerRepository from './repositories/developerRepository.js';
+import type { Response } from 'express';
 
 const app = express();
-const PORT = process.env.PORT ?? 3000;
+
+function asyncHandler<T>(fn: (req: express.Request, res: Response<T, AuthenticatedLocals>, next: express.NextFunction) => Promise<void>) {
+  return (req: express.Request, res: Response<T, AuthenticatedLocals>, next: express.NextFunction) => {
+    Promise.resolve(fn(req, res, next)).catch(next);
+  };
+}
 
 const isProduction = process.env.NODE_ENV === 'production';
 
@@ -185,6 +195,78 @@ app.get('/api/usage', (_req, res) => {
   res.json({ calls: 0, period: 'current' });
 });
 
+// Developer profile: get current user's profile
+app.get('/api/developers/me', requireAuth, asyncHandler(async (req, res) => {
+  const user = res.locals.authenticatedUser;
+  if (!user) throw new UnauthorizedError();
+  const developer = await developerRepository.findByUserId(user.id);
+  if (!developer) throw new NotFoundError('Developer profile not found');
+  res.json({ developer });
+}));
+
+// Developer profile: create or update (upsert)
+app.post('/api/developers', requireAuth, asyncHandler(async (req, res) => {
+  const user = res.locals.authenticatedUser;
+  if (!user) throw new UnauthorizedError();
+  const { name, website, description, category } = req.body ?? {};
+  const developer = await developerRepository.upsert(user.id, {
+    name: name ?? null,
+    website: website ?? null,
+    description: description ?? null,
+    category: category ?? null,
+  });
+  res.status(201).json({ developer });
+}));
+
+// Update API owned by current developer (PATCH /api/developers/apis/:id)
+app.patch('/api/developers/apis/:id', requireAuth, asyncHandler(async (req, res) => {
+  const user = res.locals.authenticatedUser;
+  if (!user) throw new UnauthorizedError();
+  const developer = await developerRepository.findByUserId(user.id);
+  if (!developer) throw new ForbiddenError('Developer profile required');
+  const apiId = parseInt(req.params.id, 10);
+  if (Number.isNaN(apiId)) throw new BadRequestError('Invalid API id');
+  const [apiRow] = await db.select().from(schema.apis).where(eq(schema.apis.id, apiId)).limit(1);
+  if (!apiRow) throw new NotFoundError('API not found');
+  if (apiRow.developer_id !== developer.id) throw new ForbiddenError('API does not belong to your developer account');
+
+  const { name, description, base_url, category, status, endpoints } = req.body ?? {};
+  const updates: Record<string, unknown> = { updated_at: new Date() };
+  if (name !== undefined) updates.name = name;
+  if (description !== undefined) updates.description = description;
+  if (base_url !== undefined) updates.base_url = base_url;
+  if (category !== undefined) updates.category = category;
+  if (status !== undefined) {
+    if (!['draft', 'active', 'paused', 'archived'].includes(String(status))) throw new BadRequestError('Invalid status');
+    updates.status = status;
+  }
+
+  const [updatedApi] = await db.update(schema.apis).set(updates as Record<string, unknown>).where(eq(schema.apis.id, apiId)).returning();
+  if (!updatedApi) throw new Error('Update failed');
+
+  if (Array.isArray(endpoints)) {
+    await db.delete(schema.apiEndpoints).where(eq(schema.apiEndpoints.api_id, apiId));
+    for (const ep of endpoints) {
+      const path = ep?.path;
+      if (path == null || typeof path !== 'string') continue;
+      const method = (ep?.method ?? 'GET').toUpperCase();
+      const price = ep?.price_per_call_usdc ?? '0.01';
+      const descText = ep?.description ?? null;
+      const methodVal = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'].includes(method) ? method : 'GET';
+      await db.insert(schema.apiEndpoints).values({
+        api_id: apiId,
+        path,
+        method: methodVal,
+        price_per_call_usdc: String(price),
+        description: descText,
+      });
+    }
+  }
+
+  const endpointsList = await db.select().from(schema.apiEndpoints).where(eq(schema.apiEndpoints.api_id, apiId)).orderBy(desc(schema.apiEndpoints.created_at));
+  res.json({ api: updatedApi, endpoints: endpointsList });
+}));
+
 // Webhook registration and management routes
 app.use('/api/webhooks', webhookRouter);
 
@@ -200,6 +282,9 @@ if (process.env.NODE_ENV !== 'production') {
     return res.json({ triggered: event, developerId });
   });
 }
+
+// Global error handler (must be after all routes)
+app.use(errorHandler);
 
 app.listen(PORT, () => {
   console.log(`Callora backend listening on http://localhost:${PORT}`);
@@ -225,3 +310,4 @@ if (process.env.NODE_ENV !== 'test') {
 }
 
 export default app;
+}

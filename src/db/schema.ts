@@ -1,6 +1,21 @@
 import { sql } from 'drizzle-orm';
 import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
 
+// Developers table (one profile per user; user_id from auth e.g. x-user-id)
+export const developers = sqliteTable('developers', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  user_id: text('user_id').notNull().unique(),
+  name: text('name'),
+  website: text('website'),
+  description: text('description'),
+  category: text('category'),
+  created_at: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+  updated_at: integer('updated_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+});
+
+export type Developer = typeof developers.$inferSelect;
+export type NewDeveloper = typeof developers.$inferInsert;
+
 // Status enum for APIs
 export const apiStatusEnum = ['draft', 'active', 'paused', 'archived'] as const;
 export type ApiStatus = typeof apiStatusEnum[number];

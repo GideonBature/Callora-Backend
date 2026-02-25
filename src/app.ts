@@ -7,6 +7,7 @@ import {
 } from './repositories/usageEventsRepository.js';
 import { requireAuth, type AuthenticatedLocals } from './middleware/requireAuth.js';
 import { buildDeveloperAnalytics } from './services/developerAnalytics.js';
+import { errorHandler } from './middleware/errorHandler.js';
 
 interface AppDependencies {
   usageEventsRepository: UsageEventsRepository;
@@ -91,5 +92,6 @@ export const createApp = (dependencies?: Partial<AppDependencies>) => {
     res.json(analytics);
   });
 
+  app.use(errorHandler);
   return app;
 };

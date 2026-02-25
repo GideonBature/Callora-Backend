@@ -25,28 +25,35 @@ export async function initializeDb() {
 
     if (!tableExists) {
       console.log('Running initial migration...');
-      
-      // Read and execute the migration SQL
       const migrationSQL = readFileSync(
-        join(__dirname, '..', '..', 'migrations', '0000_initial_apis_tables.sql'), 
+        join(__dirname, '..', '..', 'migrations', '0000_initial_apis_tables.sql'),
         'utf8'
       );
-      
-      // Split by semicolon and execute each statement
       const statements = migrationSQL.split(';').filter(stmt => stmt.trim());
-      
       sqlite.exec('BEGIN TRANSACTION');
-      
       for (const statement of statements) {
-        if (statement.trim()) {
-          sqlite.exec(statement);
-        }
+        if (statement.trim()) sqlite.exec(statement);
       }
-      
       sqlite.exec('COMMIT');
-      console.log('✅ Database migration completed successfully');
-    } else {
-      console.log('Database already initialized');
+      console.log('✅ Initial migration completed');
+    }
+
+    const developersExists = sqlite.prepare(`
+      SELECT name FROM sqlite_master WHERE type='table' AND name='developers'
+    `).get();
+    if (!developersExists) {
+      console.log('Running developers migration...');
+      const devSQL = readFileSync(
+        join(__dirname, '..', '..', 'migrations', '0004_create_developers.sql'),
+        'utf8'
+      );
+      const statements = devSQL.split(';').filter(stmt => stmt.trim());
+      sqlite.exec('BEGIN TRANSACTION');
+      for (const statement of statements) {
+        if (statement.trim()) sqlite.exec(statement);
+      }
+      sqlite.exec('COMMIT');
+      console.log('✅ Developers migration completed');
     }
   } catch (error) {
     console.error('Failed to run database migrations:', error);

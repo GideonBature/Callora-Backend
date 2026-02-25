@@ -6,7 +6,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "tsx watch src/index.ts",
-    "lint": "eslint . --ext .ts",
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "jest --runInBand"
   },

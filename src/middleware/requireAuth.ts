@@ -10,11 +10,9 @@ const MOCK_TOKENS: Record<string, string> = {
 };
 
 // Extend Express Request to carry the authenticated developer id
-declare global {
-  namespace Express {
-    interface Request {
-      developerId?: string;
-    }
+declare module 'express-serve-static-core' {
+  interface Request {
+    developerId?: string;
   }
 }
 

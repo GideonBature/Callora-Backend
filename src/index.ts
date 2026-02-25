@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import adminRouter from './routes/admin.js';
 
 const app = express();
 const PORT = process.env.PORT ?? 3000;
@@ -19,11 +20,13 @@ app.use(
       }
     },
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-api-key'],
     credentials: true,
   }),
 );
 app.use(express.json());
+
+app.use('/api/admin', adminRouter);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', service: 'callora-backend' });

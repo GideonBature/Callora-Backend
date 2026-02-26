@@ -1,13 +1,13 @@
+import assert from 'node:assert/strict';
+import test, { describe, it } from 'node:test';
 import request from 'supertest';
-import app from './index';
-import { apiKeyRepository } from './repositories/apiKeyRepository';
+import app from './index.js';
+import { apiKeyRepository } from './repositories/apiKeyRepository.js';
 
-describe('Health API', () => {
-  it('should return ok status', async () => {
-    const response = await request(app).get('/api/health');
-    expect(response.status).toBe(200);
-    expect(response.body.status).toBe('ok');
-  });
+test('Health API returns ok status', async () => {
+  const response = await request(app).get('/api/health');
+  assert.equal(response.status, 200);
+  assert.equal(response.body.status, 'ok');
 });
 
 describe('POST /api/apis/:apiId/keys', () => {
@@ -20,24 +20,21 @@ describe('POST /api/apis/:apiId/keys', () => {
         rate_limit_per_minute: 120
       });
 
-    expect(response.status).toBe(201);
-    expect(response.body).toEqual({
-      key: expect.any(String),
-      prefix: expect.any(String)
-    });
-    expect(response.body.key.startsWith('ck_live_')).toBe(true);
-    expect(response.body.key.startsWith(response.body.prefix)).toBe(true);
+    assert.equal(response.status, 201);
+    assert.ok(response.body.key);
+    assert.ok(response.body.prefix);
+    assert.ok(response.body.key.startsWith('ck_live_'));
+    assert.ok(response.body.key.startsWith(response.body.prefix));
 
     const stored = apiKeyRepository.listForTesting().at(-1);
-    expect(stored?.prefix).toBe(response.body.prefix);
-    expect(stored?.keyHash).toBeDefined();
-    expect((stored as unknown as { key?: string })?.key).toBeUndefined();
+    assert.equal(stored?.prefix, response.body.prefix);
+    assert.ok(stored?.keyHash);
+    assert.equal((stored as unknown as { key?: string })?.key, undefined);
   });
 
   it('returns 401 when unauthenticated', async () => {
     const response = await request(app).post('/api/apis/weather-api/keys').send({});
-
-    expect(response.status).toBe(401);
+    assert.equal(response.status, 401);
   });
 
   it('returns 400 when scopes are invalid', async () => {
@@ -46,7 +43,7 @@ describe('POST /api/apis/:apiId/keys', () => {
       .set('authorization', 'Bearer user-123')
       .send({ scopes: [123] });
 
-    expect(response.status).toBe(400);
+    assert.equal(response.status, 400);
   });
 
   it('returns 400 when rate_limit_per_minute is invalid', async () => {
@@ -55,7 +52,7 @@ describe('POST /api/apis/:apiId/keys', () => {
       .set('authorization', 'Bearer user-123')
       .send({ rate_limit_per_minute: 0 });
 
-    expect(response.status).toBe(400);
+    assert.equal(response.status, 400);
   });
 
   it('returns 404 when API is not published and active', async () => {
@@ -74,8 +71,8 @@ describe('POST /api/apis/:apiId/keys', () => {
       .set('authorization', 'Bearer user-123')
       .send({});
 
-    expect(draftApiResponse.status).toBe(404);
-    expect(inactiveApiResponse.status).toBe(404);
-    expect(missingApiResponse.status).toBe(404);
+    assert.equal(draftApiResponse.status, 404);
+    assert.equal(inactiveApiResponse.status, 404);
+    assert.equal(missingApiResponse.status, 404);
   });
 });

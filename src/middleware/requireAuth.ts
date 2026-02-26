@@ -1,29 +1,31 @@
-import { NextFunction, Request, Response } from 'express';
+import type { NextFunction, Request, Response } from 'express';
 
-declare global {
-  namespace Express {
-    interface Request {
-      auth?: {
-        userId: string;
-      };
-    }
-  }
+import type { AuthenticatedUser } from '../types/auth.js';
+import { UnauthorizedError } from '../errors/index.js';
+
+export interface AuthenticatedLocals {
+  authenticatedUser?: AuthenticatedUser;
 }
 
-export function requireAuth(req: Request, res: Response, next: NextFunction): void {
+export const requireAuth = (
+  req: Request,
+  res: Response<unknown, AuthenticatedLocals>,
+  next: NextFunction
+): void => {
+  let userId: string | undefined;
+
   const authHeader = req.header('authorization');
+  if (authHeader?.startsWith('Bearer ')) {
+    userId = authHeader.slice('Bearer '.length).trim();
+  } else {
+    userId = req.header('x-user-id');
+  }
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    res.status(401).json({ error: 'Unauthorized' });
+  if (!userId) {
+    next(new UnauthorizedError());
     return;
   }
 
-  const token = authHeader.slice('Bearer '.length).trim();
-  if (!token) {
-    res.status(401).json({ error: 'Unauthorized' });
-    return;
-  }
-
-  req.auth = { userId: token };
+  res.locals.authenticatedUser = { id: userId };
   next();
-}
+};

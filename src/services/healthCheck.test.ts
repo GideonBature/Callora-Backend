@@ -71,7 +71,7 @@ describe('checkDatabase', () => {
   });
 
   test('returns down when query returns unexpected result', async () => {
-    const pool = createMockPool({ rows: [] } as QueryResult);
+    const pool = createMockPool({ rows: [], rowCount: 0, command: '', oid: 0, fields: [] } as QueryResult);
     const result = await checkDatabase(pool, 2000);
 
     assert.equal(result.status, 'down');

@@ -33,14 +33,14 @@ function createMockClient(
       return result;
     },
     release: () => {},
-  } as unknown as PoolClient;
+  } as PoolClient;
 }
 
 // Mock Pool
 function createMockPool(client: PoolClient): Pool {
   return {
     connect: async () => client,
-    query: async () => ({ rows: [], rowCount: 0 } as QueryResult),
+    query: async () => ({ rows: [], rowCount: 0, command: '', oid: 0, fields: [] } as QueryResult),
   } as unknown as Pool;
 }
 
@@ -63,11 +63,11 @@ function createMockSorobanClient(
 describe('BillingService.deduct', () => {
   test('successfully deducts balance for new request', async () => {
     const client = createMockClient([
-      { rows: [], rowCount: 0 } as QueryResult, // BEGIN
-      { rows: [], rowCount: 0 } as QueryResult, // Check existing
-      { rows: [{ id: 1 }], rowCount: 1 } as QueryResult, // INSERT
-      { rows: [], rowCount: 0 } as QueryResult, // UPDATE with tx hash
-      { rows: [], rowCount: 0 } as QueryResult, // COMMIT
+      { rows: [], rowCount: 0, command: '', oid: 0, fields: [] } as QueryResult, // BEGIN
+      { rows: [], rowCount: 0, command: '', oid: 0, fields: [] } as QueryResult, // Check existing
+      { rows: [{ id: 1 }], rowCount: 1, command: '', oid: 0, fields: [] } as QueryResult, // INSERT
+      { rows: [], rowCount: 0, command: '', oid: 0, fields: [] } as QueryResult, // UPDATE with tx hash
+      { rows: [], rowCount: 0, command: '', oid: 0, fields: [] } as QueryResult, // COMMIT
     ]);
 
     const pool = createMockPool(client);
@@ -93,12 +93,15 @@ describe('BillingService.deduct', () => {
 
   test('returns existing result when request_id already exists', async () => {
     const client = createMockClient([
-      { rows: [], rowCount: 0 } as QueryResult, // BEGIN
+      { rows: [], rowCount: 0, command: '', oid: 0, fields: [] } as QueryResult, // BEGIN
       {
         rows: [{ id: 42, stellar_tx_hash: 'tx_existing_456' }],
         rowCount: 1,
+        command: '',
+        oid: 0,
+        fields: [],
       } as QueryResult, // Check existing - found!
-      { rows: [], rowCount: 0 } as QueryResult, // COMMIT
+      { rows: [], rowCount: 0, command: '', oid: 0, fields: [] } as QueryResult, // COMMIT
     ]);
 
     const pool = createMockPool(client);
@@ -129,16 +132,16 @@ describe('BillingService.deduct', () => {
         queryCallCount++;
         if (queryCallCount === 1) {
           // BEGIN
-          return { rows: [], rowCount: 0 } as QueryResult;
+          return { rows: [], rowCount: 0, command: '', oid: 0, fields: [] } as QueryResult;
         } else if (queryCallCount === 2) {
           // Check existing
-          return { rows: [], rowCount: 0 } as QueryResult;
+          return { rows: [], rowCount: 0, command: '', oid: 0, fields: [] } as QueryResult;
         } else if (queryCallCount === 3) {
           // INSERT
-          return { rows: [{ id: 1 }], rowCount: 1 } as QueryResult;
+          return { rows: [{ id: 1 }], rowCount: 1, command: '', oid: 0, fields: [] } as QueryResult;
         } else if (queryCallCount === 4) {
           // ROLLBACK
-          return { rows: [], rowCount: 0 } as QueryResult;
+          return { rows: [], rowCount: 0, command: '', oid: 0, fields: [] } as QueryResult;
         }
         throw new Error('Unexpected query call');
       },
@@ -173,13 +176,16 @@ describe('BillingService.deduct', () => {
     uniqueViolationError.code = '23505';
 
     const client = createMockClient([
-      { rows: [], rowCount: 0 } as QueryResult, // BEGIN
-      { rows: [], rowCount: 0 } as QueryResult, // Check existing - not found
+      { rows: [], rowCount: 0, command: '', oid: 0, fields: [] } as QueryResult, // BEGIN
+      { rows: [], rowCount: 0, command: '', oid: 0, fields: [] } as QueryResult, // Check existing - not found
       uniqueViolationError, // INSERT - unique violation!
-      { rows: [], rowCount: 0 } as QueryResult, // ROLLBACK
+      { rows: [], rowCount: 0, command: '', oid: 0, fields: [] } as QueryResult, // ROLLBACK
       {
         rows: [{ id: 99, stellar_tx_hash: 'tx_race_789' }],
         rowCount: 1,
+        command: '',
+        oid: 0,
+        fields: [],
       } as QueryResult, // Query existing after race
     ]);
 
@@ -206,9 +212,9 @@ describe('BillingService.deduct', () => {
 
   test('handles database connection errors gracefully', async () => {
     const client = createMockClient([
-      { rows: [], rowCount: 0 } as QueryResult, // BEGIN
+      { rows: [], rowCount: 0, command: '', oid: 0, fields: [] } as QueryResult, // BEGIN
       new Error('Connection lost'), // Check existing - connection error
-      { rows: [], rowCount: 0 } as QueryResult, // ROLLBACK
+      { rows: [], rowCount: 0, command: '', oid: 0, fields: [] } as QueryResult, // ROLLBACK
     ]);
 
     const pool = createMockPool(client);
@@ -232,17 +238,20 @@ describe('BillingService.deduct', () => {
 
   test('prevents double charge on retry with same request_id', async () => {
     const client = createMockClient([
-      { rows: [], rowCount: 0 } as QueryResult, // BEGIN (first call)
-      { rows: [], rowCount: 0 } as QueryResult, // Check existing (first call)
-      { rows: [{ id: 1 }], rowCount: 1 } as QueryResult, // INSERT (first call)
-      { rows: [], rowCount: 0 } as QueryResult, // UPDATE (first call)
-      { rows: [], rowCount: 0 } as QueryResult, // COMMIT (first call)
-      { rows: [], rowCount: 0 } as QueryResult, // BEGIN (second call)
+      { rows: [], rowCount: 0, command: '', oid: 0, fields: [] } as QueryResult, // BEGIN (first call)
+      { rows: [], rowCount: 0, command: '', oid: 0, fields: [] } as QueryResult, // Check existing (first call)
+      { rows: [{ id: 1 }], rowCount: 1, command: '', oid: 0, fields: [] } as QueryResult, // INSERT (first call)
+      { rows: [], rowCount: 0, command: '', oid: 0, fields: [] } as QueryResult, // UPDATE (first call)
+      { rows: [], rowCount: 0, command: '', oid: 0, fields: [] } as QueryResult, // COMMIT (first call)
+      { rows: [], rowCount: 0, command: '', oid: 0, fields: [] } as QueryResult, // BEGIN (second call)
       {
         rows: [{ id: 1, stellar_tx_hash: 'tx_123' }],
         rowCount: 1,
+        command: '',
+        oid: 0,
+        fields: [],
       } as QueryResult, // Check existing (second call) - found!
-      { rows: [], rowCount: 0 } as QueryResult, // COMMIT (second call)
+      { rows: [], rowCount: 0, command: '', oid: 0, fields: [] } as QueryResult, // COMMIT (second call)
     ]);
 
     const pool = createMockPool(client);

@@ -8,9 +8,13 @@ import {
 import { requireAuth, type AuthenticatedLocals } from './middleware/requireAuth.js';
 import { buildDeveloperAnalytics } from './services/developerAnalytics.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { InMemoryVaultRepository, type VaultRepository } from './repositories/vaultRepository.js';
+import { DepositController } from './controllers/depositController.js';
+import { TransactionBuilderService } from './services/transactionBuilder.js';
 
 interface AppDependencies {
   usageEventsRepository: UsageEventsRepository;
+  vaultRepository: VaultRepository;
 }
 
 const isValidGroupBy = (value: string): value is GroupBy =>
@@ -32,6 +36,12 @@ export const createApp = (dependencies?: Partial<AppDependencies>) => {
   const app = express();
   const usageEventsRepository =
     dependencies?.usageEventsRepository ?? new InMemoryUsageEventsRepository();
+  const vaultRepository =
+    dependencies?.vaultRepository ?? new InMemoryVaultRepository();
+
+  // Initialize deposit controller
+  const transactionBuilder = new TransactionBuilderService();
+  const depositController = new DepositController(vaultRepository, transactionBuilder);
 
   app.use(express.json());
 
@@ -90,6 +100,11 @@ export const createApp = (dependencies?: Partial<AppDependencies>) => {
 
     const analytics = buildDeveloperAnalytics(events, groupBy, includeTop);
     res.json(analytics);
+  });
+
+  // Deposit transaction preparation endpoint
+  app.post('/api/vault/deposit/prepare', requireAuth, (req, res: express.Response<unknown, AuthenticatedLocals>) => {
+    depositController.prepareDeposit(req, res);
   });
 
   app.use(errorHandler);

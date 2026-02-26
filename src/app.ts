@@ -8,6 +8,7 @@ import {
 import { requireAuth, type AuthenticatedLocals } from './middleware/requireAuth.js';
 import { buildDeveloperAnalytics } from './services/developerAnalytics.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { requestIdMiddleware } from './middleware/requestId.js';
 
 interface AppDependencies {
   usageEventsRepository: UsageEventsRepository;
@@ -33,6 +34,7 @@ export const createApp = (dependencies?: Partial<AppDependencies>) => {
   const usageEventsRepository =
     dependencies?.usageEventsRepository ?? new InMemoryUsageEventsRepository();
 
+  app.use(requestIdMiddleware);
   app.use(express.json());
 
   app.get('/api/health', (_req, res) => {

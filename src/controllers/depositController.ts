@@ -140,7 +140,7 @@ export class DepositController {
         network: unsignedTx.network,
         contractId: vault.contractId,
         amount: validation.normalizedAmount!,
-        operation: unsignedTx.operation,
+        operation: unsignedTx.operation as DepositPrepareResponse['operation'],
         metadata: {
           fee: unsignedTx.fee,
           timeout: unsignedTx.timeout,

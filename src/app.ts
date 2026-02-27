@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import adminRouter from './routes/admin.js';
 
 import {
   InMemoryUsageEventsRepository,
@@ -9,22 +10,18 @@ import {
 import { defaultApiRepository, type ApiRepository } from './repositories/apiRepository.js';
 import { defaultDeveloperRepository, type DeveloperRepository } from './repositories/developerRepository.js';
 import { apiStatusEnum, type ApiStatus } from './db/schema.js';
-import type { ApiRepository } from './repositories/apiRepository.js';
 import { requireAuth, type AuthenticatedLocals } from './middleware/requireAuth.js';
 import { buildDeveloperAnalytics } from './services/developerAnalytics.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { InMemoryVaultRepository, type VaultRepository } from './repositories/vaultRepository.js';
 import { DepositController } from './controllers/depositController.js';
 import { TransactionBuilderService } from './services/transactionBuilder.js';
-
-interface AppDependencies {
-  usageEventsRepository: UsageEventsRepository;
-  vaultRepository: VaultRepository;
 import { requestIdMiddleware } from './middleware/requestId.js';
 import { requestLogger } from './middleware/logging.js';
 
 interface AppDependencies {
   usageEventsRepository: UsageEventsRepository;
+  vaultRepository: VaultRepository;
   apiRepository: ApiRepository;
   developerRepository: DeveloperRepository;
 }
@@ -72,6 +69,7 @@ export const createApp = (dependencies?: Partial<AppDependencies>) => {
   const developerRepository = dependencies?.developerRepository ?? defaultDeveloperRepository;
 
   app.use(requestIdMiddleware);
+
   // Lazy singleton for production Drizzle repo; injected repo is used in tests.
   const _injectedApiRepo = dependencies?.apiRepository;
   let _drizzleApiRepo: ApiRepository | undefined;
@@ -81,7 +79,7 @@ export const createApp = (dependencies?: Partial<AppDependencies>) => {
       const { DrizzleApiRepository } = await import('./repositories/apiRepository.drizzle.js');
       _drizzleApiRepo = new DrizzleApiRepository();
     }
-    return _drizzleApiRepo;
+    return _drizzleApiRepo!;
   }
 
   app.use(requestLogger);
@@ -99,11 +97,13 @@ export const createApp = (dependencies?: Partial<AppDependencies>) => {
         }
       },
       methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-api-key'],
       credentials: true,
     }),
   );
   app.use(express.json());
+
+  app.use('/api/admin', adminRouter);
 
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok', service: 'callora-backend' });

@@ -1,20 +1,12 @@
-import express from "express";
-import { config } from "./config/index.js";
-import routes from "./routes/index.js";
-
-const app = express();
 import 'dotenv/config';
 import { fileURLToPath } from 'node:url';
 import { createApp } from './app.js';
 import { logger } from './logger.js';
 import { metricsMiddleware, metricsEndpoint } from './metrics.js';
 
-app.use(express.json());
-app.use("/api", routes);
+const app = createApp();
+const PORT = process.env.PORT ?? 3000;
 
-if (config.nodeEnv !== "test") {
-  app.listen(config.port, () => {
-    console.log(`Callora backend listening on http://localhost:${config.port}`);
 // Inject the metrics middleware globally to track all incoming requests
 app.use(metricsMiddleware);
 

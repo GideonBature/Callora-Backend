@@ -60,7 +60,7 @@ router.get('/:developerId', (req: Request, res: Response) => {
         return res.status(404).json({ error: 'No webhook registered for this developer.' });
     }
     // Never expose the secret
-    const { secret: _s, ...safeConfig } = config;
+    const { secret: _s, ...safeConfig } = config; // eslint-disable-line @typescript-eslint/no-unused-vars
     return res.json(safeConfig);
 });
 

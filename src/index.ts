@@ -7,8 +7,13 @@ import { createRateLimiter } from './services/rateLimiter.js';
 import { createUsageStore } from './services/usageStore.js';
 import { createApiRegistry } from './data/apiRegistry.js';
 import { ApiKey } from './types/gateway.js';
+import 'dotenv/config';
+import { fileURLToPath } from 'node:url';
+import { createApp } from './app.js';
+import { logger } from './logger.js';
+import { metricsMiddleware, metricsEndpoint } from './metrics.js';
 
-const app = express();
+const app = createApp();
 const PORT = process.env.PORT ?? 3000;
 
 app.use(express.json());
@@ -45,22 +50,13 @@ const proxyRouter = createProxyRouter({
   },
 });
 app.use('/v1/call', proxyRouter);
+// Inject the metrics middleware globally to track all incoming requests
+app.use(metricsMiddleware);
+app.get('/api/metrics', metricsEndpoint);
 
-app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', service: 'callora-backend' });
-});
-
-app.get('/api/apis', (_req, res) => {
-  res.json({ apis: [] });
-});
-
-app.get('/api/usage', (_req, res) => {
-  res.json({ calls: 0, period: 'current' });
-});
-
-if (process.env.NODE_ENV !== 'test') {
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   app.listen(PORT, () => {
-    console.log(`Callora backend listening on http://localhost:${PORT}`);
+    logger.info(`Callora backend listening on http://localhost:${PORT}`);
   });
 }
 

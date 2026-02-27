@@ -5,3 +5,11 @@ dist
 .env
 .env.*
 *.log
+
+/src/generated/prisma
+/.idea
+
+# Database
+database.db
+database.db-*
+coverage/
